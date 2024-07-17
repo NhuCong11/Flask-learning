@@ -106,12 +106,12 @@ def upload():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename) # đường dẫn đầy đủ cho file được upload
         file.save(file_path) # lưu file upload vào đường dẫn đã được dựng
 
-        if filename.endswith('.csv'): 
+        if filename.endswith('.txt'): 
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
             except UnicodeDecodeError as e:
-                flash(f'Error decoding CSV file: {e}')
+                flash(f'Error decoding TXT file: {e}')
                 return redirect(url_for('upload'))
 
             lines = content.split('\n') # dùng split để tách từng dòng
@@ -122,7 +122,7 @@ def upload():
                     student = Students(name.strip(), city.strip(), addr.strip(), pin.strip())
                     db.session.add(student)
             db.session.commit()
-            flash('CSV file successfully uploaded and processed')
+            flash('TXT file successfully uploaded and processed')
 
         elif filename.endswith('.docx'):
             try:
@@ -182,7 +182,7 @@ def upload():
                 flash(f'Error processing Excel document: {str(e)}')
 
         else:
-            flash('Unsupported file format. Please upload a CSV or Word or Excel document.')
+            flash('Unsupported file format. Please upload a TXT or Word or Excel document.')
         
         return redirect(url_for('show_all'))
 
