@@ -1,3 +1,0 @@
-Nguyen Van A,Hanoi,123 Main St,100000
-Le Thi B,Ho Chi Minh,456 Another St,700000
-Tran Van C,Da Nang,789 Some St,550000

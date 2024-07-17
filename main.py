@@ -9,6 +9,8 @@ import logging
 from docx import Document
 import win32com.client
 from openpyxl import Workbook, load_workbook
+from docx.oxml import OxmlElement, ns
+from docx.shared import Pt, Cm
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -127,12 +129,25 @@ def upload():
         elif filename.endswith('.docx'):
             try:
                 doc = Document(file_path) # chuyển đổi file docx từ file_path thành đối tượng Document
-                for paragraph in doc.paragraphs: # lặp qua các đoạn văn bản có trong file sau khi chuyển đổi qua Document 
-                    parts = paragraph.text.strip().split(',') # paragraph.text trả về dạng text của đoạn văn bản hiện tại
-                    if len(parts) == 4:
-                        name, city, addr, pin = parts
-                        student = Students(name.strip(), city.strip(), addr.strip(), pin.strip())
-                        db.session.add(student)
+
+                # for paragraph in doc.paragraphs: # lặp qua các đoạn văn bản có trong file sau khi chuyển đổi qua Document 
+                #     parts = paragraph.text.strip().split(',') # paragraph.text trả về dạng text của đoạn văn bản hiện tại
+                #     if len(parts) == 4:
+                #         name, city, addr, pin = parts
+                #         student = Students(name.strip(), city.strip(), addr.strip(), pin.strip())
+                #         db.session.add(student)
+
+                table = doc.tables[0] # Giả sử dữ liệu ở table đầu tiên
+
+                for row in table.rows[1:]: # Loại bỏ row đầu tiên chứa tiêu đề
+                    cells = row.cells
+                    name = cells[0].text.strip()
+                    city = cells[1].text.strip()
+                    addr = cells[2].text.strip()
+                    pin = cells[3].text.strip()
+                    student = Students(name, city, addr, pin)
+                    db.session.add(student)
+
                 db.session.commit()
                 flash('Word document successfully uploaded and processed')
 
@@ -173,7 +188,7 @@ def upload():
                 # values_only=True: nó sẽ trả về giá trị của các ô thay vì các đối tượng ô 
                 for row in ws.iter_rows(min_row=2, values_only=True): # bắt đầu từ dòng thứ 2 do dòng 1 là tiêu đề
                     name, city, addr, pin = row
-                    student = Students(name=name, city=city, addr=addr, pin=pin)
+                    student = Students(name, city, addr, pin)
                     db.session.add(student)
 
                 db.session.commit()    
@@ -188,6 +203,37 @@ def upload():
 
     return render_template('pages/upload.html', form=form)
 
+def set_column_width(column, width):
+    for cell in column.cells:
+        cell.width = width
+
+def set_table_border(table):
+    tbl = table._tbl  # Get the table's XML element
+    tblBorders = tbl.xpath('.//w:tblBorders')
+    
+    if tblBorders:
+        tblBorders = tblBorders[0]
+    else:
+        tblBorders = OxmlElement('w:tblBorders')
+        tbl.tblPr.append(tblBorders)
+    
+    borders = {
+        'top': 'w:top',
+        'left': 'w:left',
+        'bottom': 'w:bottom',
+        'right': 'w:right',
+        'insideH': 'w:insideH',
+        'insideV': 'w:insideV'
+    }
+    
+    for border_name, border_tag in borders.items():
+        border = OxmlElement(border_tag)
+        border.set(ns.qn('w:val'), 'single')
+        border.set(ns.qn('w:sz'), '4')  # 4 half-points = 2 points
+        border.set(ns.qn('w:space'), '0')
+        border.set(ns.qn('w:color'), 'auto')
+        tblBorders.append(border)
+
 @app.route('/export_docx', methods=['GET'])
 def export_docx():
     students = Students.query.all()
@@ -196,8 +242,41 @@ def export_docx():
     doc.add_heading('Student List') # thêm tiêu đề cho docs
 
     # thêm dữ liệu vào docs
+    # for student in students:
+    #     doc.add_paragraph(f'{student.name}, {student.city}, {student.addr}, {student.pin}')
+
+    # Tạo một bảng với số cột tương ứng
+    table = doc.add_table(rows=1, cols=4)
+
+    # Thêm tiêu đề
+    hdr_cells = table.rows[0].cells
+    hdr_cells[0].text = 'Name'
+    hdr_cells[1].text = 'City'
+    hdr_cells[2].text = 'Address'
+    hdr_cells[3].text = 'PIN'
+
+    # Thêm dữ liệu vào table
+    data = []
     for student in students:
-        doc.add_paragraph(f'{student.name}, {student.city}, {student.addr}, {student.pin}')
+        data.append([student.name, student.city, student.addr, student.pin])
+        row_cells = table.add_row().cells
+        row_cells[0].text = student.name
+        row_cells[1].text = student.city
+        row_cells[2].text = student.addr
+        row_cells[3].text = student.pin
+
+    set_table_border(table)
+
+    # Tính toán chiều rộng cột dựa trên giá trị dài nhất trong mỗi cột
+    col_widths = [0, 0, 0, 0]
+    for row in data:
+        for idx, cell in enumerate(row):
+            col_widths[idx] = max(col_widths[idx], len(cell))
+
+    # Đặt chiều rộng cho các cột
+    for idx, width in enumerate(col_widths):
+        for cell in table.columns[idx].cells:
+            cell.width = Cm(width * 0.4)  # Điều chỉnh hệ số này để phù hợp với kích thước mong muốn
     
     # lưu tài liệu xuống file
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'student_list.docx')
