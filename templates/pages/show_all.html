@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Show All</title>
+</head>
+<body>
+    <h3>
+        <a href="{{ url_for('show_all') }}">Show all students</a>
+        <br />
+        <a href="{{ url_for('upload') }}">Upload File</a>
+        <hr />
+        {%- for message in get_flashed_messages() %}
+            {{ message }}
+        {% endfor %}
+
+        <h3>Students (<a href="{{ url_for('new') }}">Add Student</a>)</h3>
+
+        <table border="1">
+            <thead>
+                <tr>
+                    <td>Name</td>
+                    <td>City</td>
+                    <td>Address</td>
+                    <td>Pin</td>
+                    <td>Actions</td>
+                </tr>
+            </thead>
+            {% if students %}
+            {% for student in students %}
+                <tr>
+                    <form action="{{ url_for('update_student', student_id=student.id) }}" method="post">
+                        <td><input type="text" value="{{ student.name }}" name="name" /></td>
+                        <td><input type="text" value="{{ student.city }}" name="city" /></td>
+                        <td><input type="text" value="{{ student.addr }}" name="addr" /></td>
+                        <td><input type="text" value="{{ student.pin }}" name="pin" /></td>
+                        <td><input type="submit" value="Update" /></td>
+                    </form>
+                    <form action="{{ url_for('delete_student', student_id=student.id) }}" method="post" style="display:inline;">
+                        <td><input type="submit" value="Delete" /></td>
+                    </form>
+                </tr>
+            {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5">No students found</td>
+                </tr>
+            {% endif %}
+        </table>
+    </h3>
+
+    <hr />
+    <h3><a href="{{ url_for('export_docx') }}">Export file docx</a></h3>
+    <h3><a href="{{ url_for('export_excel') }}">Export file excel</a></h3>
+
+    <hr />
+    <h3>Search student</h3>
+    <form action="{{ url_for('show_all') }}" method="post">
+        <input type="text" name="searchValue" placeholder="Enter student name" />
+        <input type="submit" value="Search">
+    </form>
+</body>
+</html>
